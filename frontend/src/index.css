@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+  color: #000000;
+  background-color: #ffffff;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #FAFAFA;
+}
+
+@keyframes progress-fast {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(-10%); }
+  100% { transform: translateX(0%); }
+}
+
+.animate-progress-fast {
+  animation: progress-fast 10s ease-out forwards;
+}

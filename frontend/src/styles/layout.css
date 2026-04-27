@@ -1,0 +1,31 @@
+/* Architectural v3.3 — Refined Grid */
+
+.artboard {
+  width: var(--a4-w);
+  height: var(--a4-h);
+  background: white;
+  margin: 0 auto;
+  padding: var(--print-margin);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 32px;
+}
+
+.col-span-1 { grid-column: span 1; }
+.col-span-11 { grid-column: span 11; }
+.col-span-6 { grid-column: span 6; }
+.col-span-12 { grid-column: span 12; }
+
+/* Pure Typographic Flow — All lines purged */
+.cv-match-highlight {
+  background-color: #F8F8F8;
+  font-weight: 800;
+}

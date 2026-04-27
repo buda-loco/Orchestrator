@@ -1,0 +1,122 @@
+/* Architectural v3.6 — Conditional Design Engine */
+
+@font-face {
+  font-family: 'Adrianna Extended';
+  src: url('/fonts/Adrianna Extended ExtraBold.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Adrianna';
+  src: url('/fonts/Adrianna Bold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Adrianna';
+  src: url('/fonts/Adrianna Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Adrianna';
+  src: url('/fonts/Adrianna Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+.cv-name {
+  font-family: 'Adrianna Extended', system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 32px;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.cv-target-title {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  margin-top: 4px;
+}
+
+.cv-section-title {
+  font-family: 'Adrianna Extended', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.cv-label {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 800;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #888888;
+}
+
+.cv-body {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 400;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #000000;
+  text-wrap: pretty;
+}
+
+.cv-lead {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cv-item-role {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.cv-item-meta {
+  font-family: 'Adrianna', sans-serif;
+  font-weight: 700;
+  font-size: 8px;
+  color: #000000;
+}
+
+.cv-match-highlight {
+  background-color: #F8F8F8;
+  font-weight: 700;
+}
+
+/* 
+  ATS MODE: Only active when .ats-mode class is present.
+  If inactive, the PDF will use the exact Adrianna design seen on screen.
+*/
+@media print {
+  .ats-mode * {
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    font-kerning: none !important;
+    font-variant-ligatures: none !important;
+    font-feature-settings: normal !important;
+    text-rendering: optimizeSpeed !important;
+    font-family: Helvetica, Arial, sans-serif !important;
+  }
+  
+  .ats-mode .cv-name, .ats-mode .cv-section-title {
+    letter-spacing: 0 !important;
+  }
+}
+
+* { font-style: normal !important; }
