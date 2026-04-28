@@ -5,6 +5,7 @@
   src: url('/fonts/Adrianna Extended ExtraBold.ttf') format('truetype');
   font-weight: 900;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -12,6 +13,7 @@
   src: url('/fonts/Adrianna Bold.ttf') format('truetype');
   font-weight: 800;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -19,6 +21,7 @@
   src: url('/fonts/Adrianna Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
@@ -26,6 +29,7 @@
   src: url('/fonts/Adrianna Light.ttf') format('truetype');
   font-weight: 300;
   font-style: normal;
+  font-display: swap;
 }
 
 .cv-name {
@@ -99,11 +103,28 @@
   font-weight: 700;
 }
 
-/* 
-  ATS MODE: Only active when .ats-mode class is present.
-  If inactive, the PDF will use the exact Adrianna design seen on screen.
+/*
+  PRINT NORMALIZATION
+  Always-on (no toggle): reset letter-/word-spacing on body/label text inside
+  the printed CV so ATS scanners don't see "E D U C AT I O N" as separate
+  letters. Editorial tracking on big display headlines (cv-name,
+  cv-section-title) is preserved — those aren't keyword-mined anyway.
+
+  ATS MODE (.ats-mode): additionally swaps to Helvetica/Arial for the
+  paranoid case (Workday, Taleo, legacy parsers). Optional/opt-in.
 */
 @media print {
+  .artboard .cv-label,
+  .artboard .cv-body,
+  .artboard .cv-item-meta,
+  .artboard .cv-item-role,
+  .artboard .cv-target-title,
+  .artboard .cv-lead {
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    font-feature-settings: normal !important;
+  }
+
   .ats-mode * {
     letter-spacing: normal !important;
     word-spacing: normal !important;
@@ -113,10 +134,10 @@
     text-rendering: optimizeSpeed !important;
     font-family: Helvetica, Arial, sans-serif !important;
   }
-  
+
   .ats-mode .cv-name, .ats-mode .cv-section-title {
     letter-spacing: 0 !important;
   }
 }
 
-* { font-style: normal !important; }
+.artboard * { font-style: normal !important; }

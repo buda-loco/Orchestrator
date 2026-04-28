@@ -1,0 +1,10 @@
+{
+  "version": "5.2.0",
+  "project_name": "cv-orquestrator",
+  "tech_stack": "React 19, Vite, TailwindCSS 4, Node.js, Express, Google Generative AI, Puppeteer",
+  "project_management": "none",
+  "task_prefix": "TASK",
+  "team_chat": "none",
+  "auto_load_navigator": true,
+  "compact_strategy": "conservative"
+}

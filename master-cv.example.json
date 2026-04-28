@@ -1,0 +1,108 @@
+{
+  "candidate": {
+    "name": "Your Name",
+    "title": "Senior Role Title — your headline here",
+    "tagline": "Languages | Years of experience | Key positioning",
+    "location": "City, Country (Residency / Citizenship)",
+    "contact": {
+      "email": "you@example.com",
+      "phone": "+00 000 000 000",
+      "portfolio": "yourdomain.com",
+      "linkedin": "linkedin.com/in/yourhandle"
+    },
+    "languages": [
+      {"language": "English", "fluency": "Native"},
+      {"language": "Spanish", "fluency": "Conversational"}
+    ]
+  },
+  "professional_profile": "One paragraph (3-5 sentences) describing your career arc, what you're known for, and the value you bring. The AI uses this as a seed for the tailored profile.",
+  "core_competencies": [
+    {
+      "label": "Achievement Pillar 1",
+      "statement": "A specific, measurable outcome you've delivered. Include a number."
+    },
+    {
+      "label": "Achievement Pillar 2",
+      "statement": "Another quantified achievement that signals seniority."
+    },
+    {
+      "label": "Achievement Pillar 3",
+      "statement": "A third pillar that complements the others."
+    }
+  ],
+  "brand_pillars": [
+    "Three to five short phrases describing what makes you distinctive.",
+    "Used by the AI to lace personality into the cover letter.",
+    "Keep them concrete, not abstract."
+  ],
+  "experience_modules": [
+    {
+      "company": "Most Recent Company",
+      "role": "Your role title",
+      "period": "01/2023-Present",
+      "location": "City, Country",
+      "hats": ["Strategy", "Execution", "Leadership"],
+      "highlights": [
+        "Achievement statement with a specific metric (e.g., 30% improvement, $2M revenue, 50+ clients).",
+        "Another measurable outcome describing impact.",
+        "A third highlight with a clear quantitative result."
+      ]
+    },
+    {
+      "company": "Previous Company",
+      "role": "Earlier role title",
+      "period": "06/2020-12/2022",
+      "location": "City, Country",
+      "hats": ["Skill 1", "Skill 2"],
+      "highlights": [
+        "Quantified achievement.",
+        "Another quantified achievement."
+      ]
+    },
+    {
+      "group_name": "Earlier Career (optional grouping for older roles)",
+      "period": "01/2010-12/2019",
+      "roles": [
+        {
+          "company": "Old Company A",
+          "role": "Role A",
+          "period": "01/2015-12/2019",
+          "location": "City, Country",
+          "impact": "One-line summary of impact at this role."
+        },
+        {
+          "company": "Old Company B",
+          "role": "Role B",
+          "period": "01/2010-12/2014",
+          "location": "City, Country",
+          "impact": "One-line summary."
+        }
+      ]
+    }
+  ],
+  "technical_toolkit": {
+    "creative": [
+      "List the design / creative tools you actually use.",
+      "Adobe Photoshop, Illustrator, Figma, etc."
+    ],
+    "digital": [
+      "Web / dev tools.",
+      "React, Next.js, HTML/CSS, etc."
+    ],
+    "management": [
+      "Project management tools and methodologies.",
+      "Notion, Jira, OKRs, etc."
+    ],
+    "ai": [
+      "LLM tools and AI workflows you're proficient with.",
+      "Optional but valuable on a 2026 CV."
+    ]
+  },
+  "education": [
+    {
+      "degree": "Your degree",
+      "institution": "Your institution",
+      "period": "01/2015-12/2018"
+    }
+  ]
+}

@@ -2,5 +2,20 @@ node_modules
 dist
 .DS_Store
 *.env
+*.env.local
+
+# Personal master CV — never commit. Ship master-cv.example.json instead.
+master-cv.json
+
+# Legacy backend (deprecated as of v5; kept in tree for git history)
 backend/locals.env
 backend/applications.json
+backend/dist/
+
+# Navigator
+.context-markers/
+.agent/.nav-temp/
+
+# Generated PDFs / extraction artifacts
+/tmp/cv-ats-*.pdf
+/tmp/cv-ats-*.txt

@@ -1,11 +1,13 @@
 import React from 'react';
 
 export const Logo: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className, style }) => (
-  <svg 
-    className={className} 
-    style={{ display: 'block', width: '240px', height: 'auto', ...style }} 
-    viewBox="0 0 640 151" 
-    version="1.1" 
+  <svg
+    role="img"
+    aria-label="Benjamin Arnedo"
+    className={className}
+    style={{ display: 'block', width: '240px', height: 'auto', ...style }}
+    viewBox="0 0 640 151"
+    version="1.1"
     xmlns="http://www.w3.org/2000/svg"
   >
     <g transform="matrix(1.781555,0,0,1.781556,-239.940168,-27.507909)">
