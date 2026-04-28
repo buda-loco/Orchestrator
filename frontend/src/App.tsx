@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon, Pencil, Check, X as XIcon, FilePlus } from 'lucide-react';
 // Public template seed. Personal data lives in localStorage (loadMasterCv) or is uploaded via the UI.
 import masterCvData from '../../master-cv.example.json';
 
@@ -102,6 +102,8 @@ const App: React.FC = () => {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Application | null>(null);
+  const [editingLetter, setEditingLetter] = useState(false);
+  const [letterDraft, setLetterDraft] = useState('');
 
   const docRef = useRef<HTMLDivElement>(null);
 
@@ -209,6 +211,43 @@ const App: React.FC = () => {
     setJobDescription(app.jobDescription);
     setTailoredCv(app.data || null);
     setActiveTab('cv');
+    setEditingLetter(false);
+  };
+
+  const handleReset = () => {
+    setJobTitle('');
+    setCompany('');
+    setJobUrl('');
+    setJobDescription('');
+    setTailoredCv(null);
+    setError(null);
+    setStatusMessage('');
+    setActiveTab('cv');
+    setEditingLetter(false);
+    setLetterDraft('');
+  };
+
+  const startEditLetter = () => {
+    if (!tailoredCv) return;
+    setLetterDraft(tailoredCv.coverLetter || '');
+    setEditingLetter(true);
+  };
+
+  const saveLetterEdit = () => {
+    if (!tailoredCv) return;
+    const updated = { ...tailoredCv, coverLetter: letterDraft };
+    setTailoredCv(updated);
+    if (jobTitle && company) {
+      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: updated });
+      refreshHistory();
+    }
+    setEditingLetter(false);
+    setToast('Cover letter saved');
+  };
+
+  const cancelLetterEdit = () => {
+    setEditingLetter(false);
+    setLetterDraft('');
   };
 
   const downloadPdf = () => {
@@ -311,6 +350,15 @@ const App: React.FC = () => {
         {/* RIGHT: secondary actions (only when CV is loaded) */}
         {activeTab !== 'history' && tailoredCv && (
           <div className="flex items-center gap-3 md:gap-6 animate-in fade-in duration-500 justify-center md:justify-self-end flex-wrap">
+            <button
+              onClick={handleReset}
+              aria-label="Start a new application"
+              title="Clear workspace and start a new application"
+              className="flex items-center gap-2 px-4 py-2 border-2 border-black bg-white hover:bg-black hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+            >
+              <FilePlus className="w-4 h-4" aria-hidden="true" />
+              New
+            </button>
             <div className="flex border-2 border-black">
               <button
                 onClick={() => setActiveTab('cv')}
@@ -323,6 +371,38 @@ const App: React.FC = () => {
                 className={`px-4 py-2 border-l-2 border-black text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2 ${activeTab === 'letter' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'}`}
               >Letter</button>
             </div>
+            {activeTab === 'letter' && (
+              editingLetter ? (
+                <div className="flex border-2 border-black">
+                  <button
+                    onClick={saveLetterEdit}
+                    aria-label="Save cover letter edits"
+                    className="flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-white hover:text-black text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                  >
+                    <Check className="w-4 h-4" aria-hidden="true" />
+                    Save
+                  </button>
+                  <button
+                    onClick={cancelLetterEdit}
+                    aria-label="Discard cover letter edits"
+                    className="flex items-center gap-2 px-4 py-2 border-l-2 border-black bg-white hover:bg-black hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                  >
+                    <XIcon className="w-4 h-4" aria-hidden="true" />
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startEditLetter}
+                  aria-label="Edit cover letter"
+                  title="Edit cover letter text"
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-black bg-white hover:bg-black hover:text-white text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                >
+                  <Pencil className="w-4 h-4" aria-hidden="true" />
+                  Edit
+                </button>
+              )
+            )}
             <button
               onClick={() => setAtsMode(!atsMode)}
               role="switch"
@@ -648,7 +728,19 @@ const App: React.FC = () => {
                         </div>
                       </header>
                       <div className="cv-body" style={{ fontSize: '12px', textAlign: 'left', lineHeight: '1.6', maxWidth: 'none', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {(tailoredCv.coverLetter || '').split('\n\n').map((para, i) => (<p key={i}>{highlightText(para, tailoredCv.tailoredKeywords || [])}</p>))}
+                        {editingLetter ? (
+                          <textarea
+                            value={letterDraft}
+                            onChange={e => setLetterDraft(e.target.value)}
+                            autoFocus
+                            spellCheck
+                            aria-label="Cover letter body"
+                            className="no-print w-full border-2 border-black p-4 outline-none focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2 resize-y bg-white"
+                            style={{ fontFamily: 'inherit', fontSize: '12px', lineHeight: '1.6', minHeight: '420px', whiteSpace: 'pre-wrap' }}
+                          />
+                        ) : (
+                          (tailoredCv.coverLetter || '').split('\n\n').map((para, i) => (<p key={i}>{highlightText(para, tailoredCv.tailoredKeywords || [])}</p>))
+                        )}
                         <div style={{ marginTop: '16px', borderTop: '1px solid black', paddingTop: '16px' }}>
                           <p className="cv-body" style={{ marginBottom: '8px', opacity: 0.6 }}>If you want to see some of my work that covers from web design, graphic design, video and photo, please refer to my portfolio where I upload all my latest works:</p>
                           <a href={getPortfolioUrl()} className="cv-item-role" style={{ fontSize: '14px', textDecoration: 'underline' }}>{getPortfolioUrl().split('?')[0]}</a>
