@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon } from 'lucide-react';
-import masterCvData from '../../master-cv.json';
+// Public template seed. Personal data lives in localStorage (loadMasterCv) or is uploaded via the UI.
+import masterCvData from '../../master-cv.example.json';
 
 // Design Styles
 import './styles/tokens.css';
@@ -227,12 +228,15 @@ const App: React.FC = () => {
 
   const highlightText = (text: string, keywords: string[]) => {
     if (!text) return '';
-    const list = Array.isArray(keywords)
+    const list: unknown[] = Array.isArray(keywords)
       ? keywords
       : keywords && typeof keywords === 'object'
-        ? Object.values(keywords).flat()
+        ? (Object.values(keywords as Record<string, unknown>).flat())
         : [];
-    const pattern = list.filter(k => typeof k === 'string' && k).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const pattern = list
+      .filter((k): k is string => typeof k === 'string' && k.length > 0)
+      .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
     if (!pattern) return text;
     const regex = new RegExp(`(${pattern})`, 'gi');
     const parts = text.split(regex);
