@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon, Pencil, Check, X as XIcon, FilePlus } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon, Pencil, Check, X as XIcon, FilePlus, ChevronDown } from 'lucide-react';
 // Public template seed. Personal data lives in localStorage (loadMasterCv) or is uploaded via the UI.
 import masterCvData from '../../master-cv.example.json';
 
@@ -104,6 +104,7 @@ const App: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState<Application | null>(null);
   const [editingLetter, setEditingLetter] = useState(false);
   const [letterDraft, setLetterDraft] = useState('');
+  const [qualityOpen, setQualityOpen] = useState(false);
 
   const docRef = useRef<HTMLDivElement>(null);
 
@@ -631,6 +632,96 @@ const App: React.FC = () => {
               ) : tailoredCv ? (
                 /* DOCUMENT RENDER */
                 <div ref={docRef} className="animate-in slide-in-from-bottom-10 duration-700 flex flex-col gap-20 print:display-block print:gap-0">
+                  {/* QUALITY REPORT — model self-scored coverage; not printed */}
+                  {tailoredCv.coverageReport && (
+                    <div className="no-print w-full max-w-[840px] self-center -mb-10 border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                      <button
+                        type="button"
+                        onClick={() => setQualityOpen(o => !o)}
+                        aria-expanded={qualityOpen}
+                        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                      >
+                        <div className="flex items-center gap-6 flex-wrap min-w-0">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-black/50">JD Coverage</span>
+                            <span className="text-3xl font-black leading-none">{Math.round(tailoredCv.coverageReport.overall ?? 0)}%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+                            <span className="px-2 py-1 bg-black text-white">{tailoredCv.coverageReport.directMatches ?? 0} Direct</span>
+                            <span className="px-2 py-1 border-2 border-black">{tailoredCv.coverageReport.transferable ?? 0} Transf</span>
+                            <span className="px-2 py-1 border-2 border-black">{tailoredCv.coverageReport.adjacent ?? 0} Adj</span>
+                            {(tailoredCv.coverageReport.gaps?.length ?? 0) > 0 && (
+                              <span className="px-2 py-1 border-2 border-black bg-yellow-200">{tailoredCv.coverageReport.gaps.length} Gap</span>
+                            )}
+                          </div>
+                          {tailoredCv.jdAnalysis?.archetype && (
+                            <span className="text-[10px] font-black uppercase tracking-widest border-l-2 border-black pl-4 hidden sm:inline">
+                              {tailoredCv.jdAnalysis.archetype.replace(/-/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown className={`w-5 h-5 shrink-0 transition-transform duration-200 ${qualityOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                      </button>
+                      {qualityOpen && (
+                        <div className="border-t-2 border-black p-6 space-y-6 text-sm">
+                          {tailoredCv.coverageReport.notes && (
+                            <section>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Critic notes</h3>
+                              <p className="leading-relaxed">{tailoredCv.coverageReport.notes}</p>
+                            </section>
+                          )}
+                          {(tailoredCv.coverageReport.gaps?.length ?? 0) > 0 && (
+                            <section>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Unaddressed JD requirements</h3>
+                              <ul className="space-y-1.5">
+                                {tailoredCv.coverageReport.gaps.map((g, i) => (
+                                  <li key={i} className="flex gap-2 leading-relaxed">
+                                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+                                    <span>{g}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          )}
+                          {(tailoredCv.coverageReport.reframings?.length ?? 0) > 0 && (
+                            <section>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Reframings applied ({tailoredCv.coverageReport.reframings.length})</h3>
+                              <ul className="space-y-4">
+                                {tailoredCv.coverageReport.reframings.map((r, i) => (
+                                  <li key={i} className="border-l-2 border-black pl-3 space-y-1">
+                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-black/50">{r.strategy?.replace(/-/g, ' ')}</p>
+                                    <p className="text-xs opacity-60 line-through">{r.original}</p>
+                                    <p className="leading-relaxed">{r.reframed}</p>
+                                    {r.reason && <p className="text-xs opacity-60 italic">{r.reason}</p>}
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          )}
+                          {tailoredCv.jdAnalysis && (
+                            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {(tailoredCv.jdAnalysis.mustHave?.length ?? 0) > 0 && (
+                                <div>
+                                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Must-have</h3>
+                                  <ul className="space-y-1 text-xs">
+                                    {tailoredCv.jdAnalysis.mustHave.map((m, i) => <li key={i}>· {m}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                              {(tailoredCv.jdAnalysis.redFlags?.length ?? 0) > 0 && (
+                                <div>
+                                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] mb-2">Red flags</h3>
+                                  <ul className="space-y-1 text-xs">
+                                    {tailoredCv.jdAnalysis.redFlags.map((m, i) => <li key={i}>· {m}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                            </section>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* CV */}
                   <div className={activeTab === 'cv' ? 'contents' : 'print-hidden hidden'}>
                     <div className="artboard shadow-2xl">

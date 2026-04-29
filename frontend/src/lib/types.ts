@@ -19,6 +19,35 @@ export interface TechToolkit {
   ai?: string[];
 }
 
+export type ConfidenceBand = 'direct' | 'transferable' | 'adjacent' | 'gap';
+export type RoleArchetype = 'ic-technical' | 'people-leadership' | 'cross-functional' | 'specialist' | 'hybrid';
+
+export interface JdAnalysis {
+  mustHave: string[];
+  niceToHave: string[];
+  keywords: string[];
+  implicitPreferences: string[];
+  redFlags: string[];
+  archetype: RoleArchetype;
+}
+
+export interface Reframing {
+  original: string;
+  reframed: string;
+  strategy: 'keyword-alignment' | 'emphasis-shift' | 'abstraction-level' | 'scale-emphasis';
+  reason: string;
+}
+
+export interface CoverageReport {
+  overall: number;
+  directMatches: number;
+  transferable: number;
+  adjacent: number;
+  gaps: string[];
+  reframings: Reframing[];
+  notes: string;
+}
+
 export interface TailoredCv {
   persona: string;
   targetJobTitle: string;
@@ -29,6 +58,8 @@ export interface TailoredCv {
   education: Education[];
   technicalToolkit?: TechToolkit;
   technical_toolkit?: TechToolkit;
+  jdAnalysis?: JdAnalysis;
+  coverageReport?: CoverageReport;
 }
 
 export interface Application {
