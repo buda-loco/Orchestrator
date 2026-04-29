@@ -43,9 +43,17 @@ The archetype controls voice:
   - hybrid → balance two of the above explicitly.
 
 ================================================================
-STEP 2 — SCORE EVERY HIGHLIGHT YOU EMIT
+STEP 2 — INCLUDE EVERY ROLE; SCORE TO RANK BULLETS WITHIN A ROLE
 ================================================================
-For each experience bullet you select for the tailored CV, score it against the JD on four weighted axes:
+HARD RULE — CAREER COMPLETENESS (read this first):
+  - The tailored CV's "experience" array MUST contain EVERY role from the master CV. Never drop, merge, or hide a role to "save space". A 23-year career must read as a 23-year career.
+  - Each role MUST carry between 2 and 4 highlights in the tailored output. If the master role has fewer than 2 source bullets, use what exists (do not invent). If it has more, the scoring framework below decides which 2–4 to feature.
+  - Roles appear in reverse chronological order (most recent first), exactly as in the master.
+  - The "highlights" you select are REWORDED versions of master bullets (apply reframing strategies in Step 3); they are NOT new claims.
+
+The scoring framework below governs WHICH BULLETS WITHIN A ROLE to feature, NEVER whether the role itself appears.
+
+For each candidate bullet from the master CV, score it against the JD on four weighted axes:
   - DIRECT MATCH (40%): keyword/domain/technology/outcome overlap.
   - TRANSFERABLE (30%): same capability, different context.
   - ADJACENT (20%): related tools or problem space.
@@ -53,13 +61,19 @@ For each experience bullet you select for the tailored CV, score it against the 
 
 Overall = 0.4·Direct + 0.3·Transferable + 0.2·Adjacent + 0.1·Impact
 
-Confidence bands:
-  - 90–100 → DIRECT (lead with these)
+Confidence bands (used to RANK, never to CULL roles):
+  - 90–100 → DIRECT (lead with these — put first inside the role)
   - 75–89  → TRANSFERABLE (strong; reframe if terminology differs)
   - 60–74  → ADJACENT (acceptable with reframing)
-  - <60    → GAP (omit unless nothing better; flag in coverageReport.gaps)
+  - <60    → WEAK (still usable to fill the 2-bullet floor for a role; reframe heavily)
 
-You do NOT need to attach a score to each individual bullet in the JSON output, but the SELECTION decision must follow these bands. Do not include any bullet whose overall score is under 60 unless the JD requirement would otherwise be entirely unaddressed.
+Selection algorithm per role:
+  1. Score every master bullet for the role.
+  2. Sort descending.
+  3. Take the top N where 2 ≤ N ≤ 4 — N is bigger when the role is recent or directly relevant, smaller for older or peripheral roles.
+  4. Apply Step 3 reframing to every selected bullet so the wording matches the JD.
+
+Do NOT attach numeric scores to individual bullets in the JSON output. The "coverageReport" counts (directMatches / transferable / adjacent) reflect bullets that ended up in the tailored CV, not master-data bullets.
 
 ================================================================
 STEP 3 — REFRAMING STRATEGIES (use when 60+ but terminology drifts)
@@ -174,12 +188,25 @@ REQUIRED STRUCTURE:
   }
 }
 
-  - "period" (NOT "dates", NOT "years") on every experience entry. Single string, "Mon YYYY - Mon YYYY" with the literal " - " separator.
+  - "experience" MUST contain one entry for EVERY role present in the master CV's experience array. Same count, same order (most recent first). If the master has 7 roles, the tailored output has 7 roles.
+  - Each "experience[i].highlights" array MUST hold between 2 and 4 reworded bullets. Never 0, never 1 (unless the master role itself only has 1 source bullet).
+  - "period" (NOT "dates", NOT "years") on every experience entry. Single string, "Mon YYYY - Mon YYYY" with the literal " - " separator. Copy "Present" from master verbatim if used there.
   - "coverLetter" is a single string. Paragraphs separated by "\\n\\n". No leading/trailing whitespace. No sign-off.
   - "tailoredKeywords" is a FLAT array of strings drawn from the JD. Not an object, not nested.
   - "coverageReport.gaps" lists JD requirements you genuinely could not back from the master data — be honest, do NOT pad this list with strong matches, and do NOT leave it empty if real gaps exist.
   - "coverageReport.overall" must be internally consistent: if half the must-haves are unaddressed, the score cannot be 90.
   - Every entry in "coverageReport.reframings" must trace its "original" wording back to the master CV verbatim.
+
+================================================================
+FINAL SELF-CHECK before returning JSON (rewrite if any fails)
+================================================================
+  □ experience.length equals the count of roles in the master CV
+  □ every experience[i].highlights.length is between 2 and 4 (or matches master if master has fewer)
+  □ experience entries are in reverse chronological order
+  □ every coverageReport.reframings[i].original appears verbatim in the master CV
+  □ coverLetter has exactly four paragraphs separated by "\\n\\n"
+  □ no banned words anywhere in coverLetter or professionalProfile
+  □ no em dashes anywhere in coverLetter
 
 BRAND PILLARS:${BRAND_PILLARS}
 `.trim();
@@ -206,6 +233,11 @@ export interface OrchestrateInput {
 }
 
 export async function orchestrate(input: OrchestrateInput): Promise<TailoredCv> {
+  const masterRoleCount = (() => {
+    const data = input.masterCvData as { experience?: unknown[] } | null;
+    return Array.isArray(data?.experience) ? data!.experience!.length : 0;
+  })();
+
   const userPrompt = [
     'JD WITH EMPLOYER QUESTIONS:',
     input.jobDescription,
@@ -213,7 +245,11 @@ export async function orchestrate(input: OrchestrateInput): Promise<TailoredCv> 
     'CV DATA:',
     JSON.stringify(input.masterCvData),
     '',
-    'INSTRUCTION: Produce the tailored JSON now. Ensure the cover letter directly addresses every single "Employer question" found at the bottom of the JD provided above.',
+    'INSTRUCTION: Produce the tailored JSON now.',
+    '',
+    `CRITICAL — CAREER COMPLETENESS: the master CV contains ${masterRoleCount} roles. Your "experience" array MUST contain exactly ${masterRoleCount} entries — one per master role, in reverse chronological order. Each role MUST carry between 2 and 4 reworded highlights (use master's count if it has fewer than 2). Do NOT drop, merge, or hide any role. The scoring framework decides which bullets to feature, never whether a role appears.`,
+    '',
+    'Ensure the cover letter directly addresses every "Employer question" at the bottom of the JD.',
   ].join('\n');
 
   const responseText = await callProvider(input.providerId, {
