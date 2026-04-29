@@ -180,9 +180,19 @@ const App: React.FC = () => {
         model,
         apiKey,
       });
-      setTailoredCv(result);
+      // Defensive: if the model dropped the entire experience array (DeepSeek with
+      // a heavy schema sometimes truncates), fall back to the master so the user
+      // is never staring at a blank Page 2. The validation banner still fires.
+      const final =
+        Array.isArray(result.experience) && result.experience.length > 0
+          ? result
+          : restoreMissingRoles(masterCv, result);
+      if (final !== result) {
+        setToast('Model returned no roles — restored from master (untailored). Re-run or switch model.');
+      }
+      setTailoredCv(final);
       setActiveTab('cv');
-      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: result });
+      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: final });
       refreshHistory();
     } catch (err: any) {
       setError(`Failed: ${err?.message ?? String(err)}`);

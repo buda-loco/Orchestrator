@@ -11,9 +11,19 @@ export interface TailoringValidation {
 const norm = (s: unknown): string =>
   String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+// Master schemas may store roles under "experience_modules" or "experience".
+const readMasterRoles = (master: unknown): Experience[] => {
+  const m = master as { experience_modules?: unknown[]; experience?: unknown[] } | null;
+  const list = Array.isArray(m?.experience_modules)
+    ? m!.experience_modules!
+    : Array.isArray(m?.experience)
+      ? m!.experience!
+      : [];
+  return list as Experience[];
+};
+
 export function validateTailoring(master: unknown, tailored: TailoredCv | null): TailoringValidation {
-  const masterExp = (master as { experience?: unknown[] } | null)?.experience;
-  const masterRoles = Array.isArray(masterExp) ? (masterExp as Experience[]) : [];
+  const masterRoles = readMasterRoles(master);
   const tailoredRoles = Array.isArray(tailored?.experience) ? tailored!.experience : [];
 
   const tailoredCompanies = new Set(tailoredRoles.map(e => norm(e.company)));
@@ -36,8 +46,7 @@ export function validateTailoring(master: unknown, tailored: TailoredCv | null):
 }
 
 export function restoreMissingRoles(master: unknown, tailored: TailoredCv): TailoredCv {
-  const masterExp = (master as { experience?: unknown[] } | null)?.experience;
-  const masterRoles = Array.isArray(masterExp) ? (masterExp as Experience[]) : [];
+  const masterRoles = readMasterRoles(master);
   const tailoredRoles = Array.isArray(tailored.experience) ? tailored.experience : [];
 
   const tailoredByCompany = new Map<string, Experience>();

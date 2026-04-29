@@ -232,11 +232,17 @@ export interface OrchestrateInput {
   apiKey: string;
 }
 
+// Master CV schemas in the wild use either "experience_modules" or "experience"
+// at the top level. Treat both as the source of role records.
+const extractMasterRoles = (master: unknown): unknown[] => {
+  const m = master as { experience_modules?: unknown[]; experience?: unknown[] } | null;
+  if (Array.isArray(m?.experience_modules)) return m!.experience_modules!;
+  if (Array.isArray(m?.experience)) return m!.experience!;
+  return [];
+};
+
 export async function orchestrate(input: OrchestrateInput): Promise<TailoredCv> {
-  const masterRoleCount = (() => {
-    const data = input.masterCvData as { experience?: unknown[] } | null;
-    return Array.isArray(data?.experience) ? data!.experience!.length : 0;
-  })();
+  const masterRoleCount = extractMasterRoles(input.masterCvData).length;
 
   const userPrompt = [
     'JD WITH EMPLOYER QUESTIONS:',
@@ -247,7 +253,9 @@ export async function orchestrate(input: OrchestrateInput): Promise<TailoredCv> 
     '',
     'INSTRUCTION: Produce the tailored JSON now.',
     '',
-    `CRITICAL — CAREER COMPLETENESS: the master CV contains ${masterRoleCount} roles. Your "experience" array MUST contain exactly ${masterRoleCount} entries — one per master role, in reverse chronological order. Each role MUST carry between 2 and 4 reworded highlights (use master's count if it has fewer than 2). Do NOT drop, merge, or hide any role. The scoring framework decides which bullets to feature, never whether a role appears.`,
+    masterRoleCount > 0
+      ? `CRITICAL — CAREER COMPLETENESS: the master CV contains ${masterRoleCount} roles (look under "experience_modules" or "experience"). Your output "experience" array MUST contain exactly ${masterRoleCount} entries — one per master role, in reverse chronological order. Each role MUST carry between 2 and 4 reworded highlights (use master's count if it has fewer than 2). Do NOT drop, merge, or hide any role. The scoring framework decides which bullets to feature, never whether a role appears.`
+      : `CRITICAL — CAREER COMPLETENESS: include EVERY role from the master CV in your output "experience" array (look under "experience_modules" or "experience"). Reverse chronological order. 2–4 reworded highlights per role. Do NOT drop, merge, or hide any role.`,
     '',
     'Ensure the cover letter directly addresses every "Employer question" at the bottom of the JD.',
   ].join('\n');
@@ -258,6 +266,10 @@ export async function orchestrate(input: OrchestrateInput): Promise<TailoredCv> 
     model: input.model,
     apiKey: input.apiKey,
     responseFormat: 'json_object',
+    // Heavy schema (jdAnalysis + coverageReport.reframings + N roles × 2-4 bullets +
+    // 220-340-word letter) routinely exceeds the 4K default on DeepSeek/OpenAI compat.
+    // Cap at 8K — well within Gemini/Claude/DeepSeek limits, prevents mid-array truncation.
+    maxTokens: 8000,
   });
 
   return robustParseJson(responseText) as TailoredCv;
