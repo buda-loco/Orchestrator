@@ -7,11 +7,6 @@ dist
 # Personal master CV — never commit. Ship master-cv.example.json instead.
 master-cv.json
 
-# Legacy backend (deprecated as of v5; kept in tree for git history)
-backend/locals.env
-backend/applications.json
-backend/dist/
-
 # Navigator
 .context-markers/
 .agent/.nav-temp/

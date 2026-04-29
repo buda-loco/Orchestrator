@@ -1,4 +1,5 @@
 import type { TailoredCv, Experience } from './types';
+import { masterRoles as readMasterRoles } from './master';
 
 export interface TailoringValidation {
   ok: boolean;
@@ -11,54 +12,43 @@ export interface TailoringValidation {
 const norm = (s: unknown): string =>
   String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-// Master schemas may store roles under "experience_modules" or "experience".
-const readMasterRoles = (master: unknown): Experience[] => {
-  const m = master as { experience_modules?: unknown[]; experience?: unknown[] } | null;
-  const list = Array.isArray(m?.experience_modules)
-    ? m!.experience_modules!
-    : Array.isArray(m?.experience)
-      ? m!.experience!
-      : [];
-  return list as Experience[];
-};
-
 export function validateTailoring(master: unknown, tailored: TailoredCv | null): TailoringValidation {
-  const masterRoles = readMasterRoles(master);
-  const tailoredRoles = Array.isArray(tailored?.experience) ? tailored!.experience : [];
+  const master_ = readMasterRoles(master);
+  const tailored_ = Array.isArray(tailored?.experience) ? tailored!.experience : [];
 
-  const tailoredCompanies = new Set(tailoredRoles.map(e => norm(e.company)));
+  const tailoredCompanies = new Set(tailored_.map(e => norm(e.company)));
 
-  const missingRoles = masterRoles
+  const missingRoles = master_
     .filter(m => !tailoredCompanies.has(norm(m.company)))
     .map(m => ({ company: m.company, role: m.role }));
 
-  const thinRoles = tailoredRoles
+  const thinRoles = tailored_
     .filter(t => Array.isArray(t.highlights) && t.highlights.length < 2)
     .map(t => ({ company: t.company, role: t.role, count: t.highlights?.length ?? 0 }));
 
   return {
     ok: missingRoles.length === 0 && thinRoles.length === 0,
-    masterRoleCount: masterRoles.length,
-    tailoredRoleCount: tailoredRoles.length,
+    masterRoleCount: master_.length,
+    tailoredRoleCount: tailored_.length,
     missingRoles,
     thinRoles,
   };
 }
 
 export function restoreMissingRoles(master: unknown, tailored: TailoredCv): TailoredCv {
-  const masterRoles = readMasterRoles(master);
-  const tailoredRoles = Array.isArray(tailored.experience) ? tailored.experience : [];
+  const master_ = readMasterRoles(master);
+  const tailored_ = Array.isArray(tailored.experience) ? tailored.experience : [];
 
   const tailoredByCompany = new Map<string, Experience>();
-  tailoredRoles.forEach(e => tailoredByCompany.set(norm(e.company), e));
+  tailored_.forEach(e => tailoredByCompany.set(norm(e.company), e));
 
-  const merged: Experience[] = masterRoles.map(m => {
+  const merged: Experience[] = master_.map(m => {
     const t = tailoredByCompany.get(norm(m.company));
     if (t) return t;
     return {
       company: m.company,
       role: m.role,
-      period: m.period || m.dates || '',
+      period: m.period || '',
       highlights: Array.isArray(m.highlights) ? m.highlights : [],
     };
   });

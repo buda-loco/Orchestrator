@@ -2,7 +2,6 @@ export interface Experience {
   company: string;
   role: string;
   period?: string;
-  dates?: string;
   highlights: string[];
 }
 
@@ -19,7 +18,6 @@ export interface TechToolkit {
   ai?: string[];
 }
 
-export type ConfidenceBand = 'direct' | 'transferable' | 'adjacent' | 'gap';
 export type RoleArchetype = 'ic-technical' | 'people-leadership' | 'cross-functional' | 'specialist' | 'hybrid';
 
 export interface JdAnalysis {
@@ -57,7 +55,6 @@ export interface TailoredCv {
   experience: Experience[];
   education: Education[];
   technicalToolkit?: TechToolkit;
-  technical_toolkit?: TechToolkit;
   jdAnalysis?: JdAnalysis;
   coverageReport?: CoverageReport;
 }

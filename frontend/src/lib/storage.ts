@@ -11,23 +11,41 @@ export interface Settings {
   onboardingComplete: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = {
+const DEFAULT_SETTINGS: Settings = {
   providerId: 'gemini',
   models: {},
   apiKeys: {},
   onboardingComplete: false,
 };
 
-export const loadApplications = (): Application[] => {
+// Reject __proto__ / constructor keys that could pollute Object.prototype when merged.
+const safeReviver = (key: string, value: unknown): unknown =>
+  key === '__proto__' || key === 'constructor' || key === 'prototype' ? undefined : value;
+
+const safeParse = <T>(raw: string | null, fallback: T): T => {
+  if (!raw) return fallback;
   try {
-    const raw = localStorage.getItem(KEY_APPLICATIONS);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = JSON.parse(raw, safeReviver);
+    return (parsed as T) ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 };
 
-export const saveApplications = (apps: Application[]) => {
+const isApplication = (a: unknown): a is Application => {
+  if (!a || typeof a !== 'object') return false;
+  const v = a as Record<string, unknown>;
+  return typeof v.id === 'number'
+    && typeof v.jobTitle === 'string'
+    && typeof v.company === 'string';
+};
+
+export const loadApplications = (): Application[] => {
+  const parsed = safeParse<unknown>(localStorage.getItem(KEY_APPLICATIONS), []);
+  return Array.isArray(parsed) ? parsed.filter(isApplication) : [];
+};
+
+const saveApplications = (apps: Application[]) => {
   localStorage.setItem(KEY_APPLICATIONS, JSON.stringify(apps));
 };
 
@@ -66,12 +84,7 @@ export const removeApplication = (id: number): Application[] => {
 };
 
 export const loadMasterCv = (): unknown | null => {
-  try {
-    const raw = localStorage.getItem(KEY_MASTER_CV);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  return safeParse<unknown>(localStorage.getItem(KEY_MASTER_CV), null);
 };
 
 export const saveMasterCv = (data: unknown) => {
@@ -79,13 +92,8 @@ export const saveMasterCv = (data: unknown) => {
 };
 
 export const loadSettings = (): Settings => {
-  try {
-    const raw = localStorage.getItem(KEY_SETTINGS);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
+  const parsed = safeParse<Partial<Settings>>(localStorage.getItem(KEY_SETTINGS), {});
+  return { ...DEFAULT_SETTINGS, ...parsed };
 };
 
 export const saveSettings = (s: Settings) => {

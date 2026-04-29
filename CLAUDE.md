@@ -37,24 +37,23 @@ This loads `.agent/DEVELOPMENT-README.md` (project navigator) which provides:
 
 ### General Standards
 - **Architecture**: KISS, DRY, SOLID
-- **TypeScript**: Strict mode (frontend); backend currently JS via ts-node-dev
+- **TypeScript**: Strict mode
 - **Line Length**: Max 100 characters
 - **No inline styles**: Tailwind utility classes only
 
-### Frontend (React 19 + Vite + Tailwind v4)
+### Frontend (React 19 + Vite + Tailwind v4) — the entire app, no backend
 - Functional components only, no classes
 - Tailwind v4 utility-first; design tokens for the monochrome system
 - Adrianna Extended (display) + Adrianna (body) typography
 - ATS Mode toggle MUST swap to Helvetica/Arial system fonts to preserve a contiguous text layer
-- PDF export: html2canvas + jsPDF for client-side; Puppeteer (backend) for ATS-grade output
+- PDF export: native window.print() against the print CSS; the export route never leaves the browser
 - Strict 3-page CV layout — verify "Nuclear Purge" print CSS still passes after changes
 
-### Backend (Node.js + Express)
-- Routes in `backend/src/index.ts` (currently single-file orchestration)
-- Persistence via local JSON DB (`applications.json`) — treat writes as atomic
-- AI engines abstracted behind a single orchestration entrypoint (Gemini ↔ DeepSeek)
+### LLM orchestration (browser-side)
+- All provider calls live in `frontend/src/lib/providers/*` — one adapter per provider, sharing a `ProviderAdapter` interface
+- The single orchestration entrypoint is `frontend/src/lib/orchestrate.ts`; system prompt is exported from there
+- API keys live in localStorage only — never log them, never include them in error messages, never put them in URL query strings
 - Every AI prompt MUST inject Brand Pillars + JD keywords; refuse to ship prompts without metric/scale guardrails
-- Secrets in `backend/locals.env` (NEVER commit)
 
 ---
 
@@ -67,7 +66,8 @@ This loads `.agent/DEVELOPMENT-README.md` (project navigator) which provides:
 
 ### General Violations
 - ❌ No Claude Code mentions in commits/code
-- ❌ Never commit `backend/locals.env` or any API keys
+- ❌ Never commit API keys, the personal `master-cv.json`, or `applications.json`
+- ❌ Never put API keys in URL query strings (always headers — see `providers/google.ts` for the pattern)
 - ❌ No package.json modifications without approval
 - ❌ Don't break the 3-page CV invariant or remove ATS mode
 

@@ -116,8 +116,6 @@ frontend/
 └── master-cv.json                 # gitignored — your master data
 ```
 
-The `backend/` folder is **deprecated** as of v5 — kept around for git history but no longer needed. Delete it after cloning if you prefer a clean tree.
-
 ## Adding a new provider
 
 Three steps:

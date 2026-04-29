@@ -26,23 +26,25 @@ import {
 import { orchestrate as runOrchestrate } from './lib/orchestrate';
 import { getProvider } from './lib/providers';
 import { validateTailoring, restoreMissingRoles } from './lib/validation';
+import { slugify, masterToolkit } from './lib/master';
 
-// Global Filter
-if (typeof window !== 'undefined') {
-  const suppressPatterns = ['Could not establish connection', 'chrome-extension', 'runtime.lastError', 'Receiving end does not exist'];
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  console.error = (...args: any[]) => {
-    const msg = args.map(arg => String(arg)).join(' ');
-    if (suppressPatterns.some(p => msg.includes(p))) return;
-    originalError(...args);
+// Browser extensions inject errors into the page that aren't ours.
+// Suppress only in production so devs still see real warnings locally.
+if (typeof window !== 'undefined' && import.meta.env.PROD) {
+  const noise = /chrome-extension|runtime\.lastError|Could not establish connection|Receiving end does not exist/;
+  const wrap = (orig: (...a: unknown[]) => void) => (...args: unknown[]) => {
+    if (noise.test(args.map(a => String(a)).join(' '))) return;
+    orig(...args);
   };
-  console.warn = (...args: any[]) => {
-    const msg = args.map(arg => String(arg)).join(' ');
-    if (suppressPatterns.some(p => msg.includes(p))) return;
-    originalWarn(...args);
-  };
+  console.error = wrap(console.error.bind(console));
+  console.warn = wrap(console.warn.bind(console));
 }
+
+const GLOBAL_REFERENCES = [
+  { name: 'Jimmy Logue', company: 'Crewcible Studios', email: 'jimmy@crewcible.com', phone: '+61 040 0217522' },
+  { name: 'Kristi Clark', company: 'Dionysus', email: 'kristi@dionysus.place', phone: '+61 466 937 351' },
+  { name: 'Yonny Ferisa', company: 'Added Value Enterprises', email: 'yonatan@addedvalueent.com', phone: '+61 413 924 676' },
+];
 
 const relativeDays = (date?: string) => {
   if (!date) return null;
@@ -100,26 +102,18 @@ const App: React.FC = () => {
   const [atsMode, setAtsMode] = useState(false);
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(() => !loadSettings().onboardingComplete);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Application | null>(null);
   const [editingLetter, setEditingLetter] = useState(false);
   const [letterDraft, setLetterDraft] = useState('');
   const [qualityOpen, setQualityOpen] = useState(false);
 
-  const docRef = useRef<HTMLDivElement>(null);
-
-  const GLOBAL_REFERENCES = [
-    { name: "Jimmy Logue", company: "Crewcible Studios", email: "jimmy@crewcible.com", phone: "+61 040 0217522" },
-    { name: "Kristi Clark", company: "Dionysus", email: "kristi@dionysus.place", phone: "+61 466 937 351" },
-    { name: "Yonny Ferisa", company: "Added Value Enterprises", email: "yonatan@addedvalueent.com", phone: "+61 413 924 676" }
-  ];
-
+  const settingsHydrated = useRef(false);
   useEffect(() => {
-    if (!settings.onboardingComplete) setOnboardingOpen(true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { saveSettings(settings); }, [settings]);
+    if (!settingsHydrated.current) { settingsHydrated.current = true; return; }
+    saveSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     if (!toast) return;
@@ -134,7 +128,14 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [confirmDelete]);
 
-  const refreshHistory = () => setHistory(loadApplications());
+  const persistTailored = (data: TailoredCv) => {
+    if (!jobTitle || !company) return;
+    setHistory(storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data }));
+  };
+
+  // Reject __proto__ / constructor keys so a malicious uploaded CV can't pollute prototypes.
+  const safeReviver = (k: string, v: unknown) =>
+    k === '__proto__' || k === 'constructor' || k === 'prototype' ? undefined : v;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -142,7 +143,7 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const parsed = JSON.parse(event.target?.result as string);
+        const parsed = JSON.parse(event.target?.result as string, safeReviver);
         setMasterCv(parsed);
         saveMasterCv(parsed);
         setStatusMessage('Master Data Updated.');
@@ -180,20 +181,16 @@ const App: React.FC = () => {
         model,
         apiKey,
       });
-      // Defensive: if the model dropped the entire experience array (DeepSeek with
-      // a heavy schema sometimes truncates), fall back to the master so the user
-      // is never staring at a blank Page 2. The validation banner still fires.
       const final =
         Array.isArray(result.experience) && result.experience.length > 0
           ? result
           : restoreMissingRoles(masterCv, result);
       if (final !== result) {
-        setToast('Model returned no roles — restored from master (untailored). Re-run or switch model.');
+        setToast('Model returned no roles, restored from master (untailored). Re-run or switch model.');
       }
       setTailoredCv(final);
       setActiveTab('cv');
-      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: final });
-      refreshHistory();
+      persistTailored(final);
     } catch (err: any) {
       setError(`Failed: ${err?.message ?? String(err)}`);
     } finally {
@@ -203,16 +200,14 @@ const App: React.FC = () => {
   };
 
   const updateStatus = (id: number, status: Application['status']) => {
-    storageUpdateStatus(id, status, status === 'applied' ? new Date().toISOString() : undefined);
-    refreshHistory();
+    setHistory(storageUpdateStatus(id, status, status === 'applied' ? new Date().toISOString() : undefined));
   };
 
   const performDelete = () => {
     if (!confirmDelete) return;
     const id = confirmDelete.id;
     setConfirmDelete(null);
-    storageRemove(id);
-    refreshHistory();
+    setHistory(storageRemove(id));
     setToast('Application deleted');
   };
 
@@ -249,10 +244,7 @@ const App: React.FC = () => {
     if (!tailoredCv) return;
     const updated = { ...tailoredCv, coverLetter: letterDraft };
     setTailoredCv(updated);
-    if (jobTitle && company) {
-      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: updated });
-      refreshHistory();
-    }
+    persistTailored(updated);
     setEditingLetter(false);
     setToast('Cover letter saved');
   };
@@ -271,10 +263,7 @@ const App: React.FC = () => {
     if (!tailoredCv) return;
     const restored = restoreMissingRoles(masterCv, tailoredCv);
     setTailoredCv(restored);
-    if (jobTitle && company) {
-      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: restored });
-      refreshHistory();
-    }
+    persistTailored(restored);
     setToast('Missing roles restored from master CV (untailored)');
   };
 
@@ -282,9 +271,7 @@ const App: React.FC = () => {
     if (!tailoredCv) return;
     const docType = activeTab === 'cv' ? 'CV' : 'Letter';
     const originalTitle = document.title;
-    const cleanCompany = company.replace(/[^a-z0-9]/gi, '_');
-    const cleanJob = jobTitle.replace(/[^a-z0-9]/gi, '_');
-    document.title = `${cleanCompany}_${cleanJob}_${docType}_Benjamin_Arnedo`;
+    document.title = `${slugify(company)}_${slugify(jobTitle)}_${docType}_Benjamin_Arnedo`;
     setIsExporting(true);
     setTimeout(() => {
       window.print();
@@ -293,21 +280,27 @@ const App: React.FC = () => {
     }, 500);
   };
 
-  const highlightText = (text: string, keywords: string[]) => {
-    if (!text) return '';
-    const list: unknown[] = Array.isArray(keywords)
-      ? keywords
-      : keywords && typeof keywords === 'object'
-        ? (Object.values(keywords as Record<string, unknown>).flat())
-        : [];
+  // Compile the keyword regex once per tailoring. Recomputing per-bullet was
+  // hot-path overhead AND introduced a stateful-lastIndex bug on the global flag.
+  const highlightRegex = useMemo(() => {
+    const list = Array.isArray(tailoredCv?.tailoredKeywords) ? tailoredCv!.tailoredKeywords : [];
     const pattern = list
-      .filter((k): k is string => typeof k === 'string' && k.length > 0)
+      .filter(k => typeof k === 'string' && k.length > 0)
       .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
       .join('|');
-    if (!pattern) return text;
-    const regex = new RegExp(`(${pattern})`, 'gi');
-    const parts = text.split(regex);
-    return <>{parts.map((p, i) => regex.test(p) ? <span key={i} className="cv-match-highlight">{p}</span> : p)}</>;
+    if (!pattern) return null;
+    return {
+      split: new RegExp(`(${pattern})`, 'gi'),
+      // Non-global twin avoids the lastIndex side-effect from the .test() call below.
+      test: new RegExp(`^(?:${pattern})$`, 'i'),
+    };
+  }, [tailoredCv?.tailoredKeywords]);
+
+  const highlightText = (text: string) => {
+    if (!text) return '';
+    if (!highlightRegex) return text;
+    const parts = text.split(highlightRegex.split);
+    return <>{parts.map((p, i) => highlightRegex.test.test(p) ? <span key={i} className="cv-match-highlight">{p}</span> : p)}</>;
   };
 
   const formatPeriod = (period: string) => {
@@ -323,18 +316,24 @@ const App: React.FC = () => {
     );
   };
 
-  const getPortfolioUrl = () => {
-    const cleanCompany = company.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    return `https://www.benjaminarnedo.com/?utm_source=coverletter&utm_campaign=${cleanCompany}&utm_medium=pdf`;
-  };
+  const getPortfolioUrl = () =>
+    `https://www.benjaminarnedo.com/?utm_source=coverletter&utm_campaign=${slugify(company).toLowerCase()}&utm_medium=pdf`;
 
-  const getSkills = (key: 'creative' | 'digital' | 'management' | 'ai') => {
-    const aiToolkit = tailoredCv?.technicalToolkit || tailoredCv?.technical_toolkit;
-    const fromAi = aiToolkit?.[key];
-    if (Array.isArray(fromAi) && fromAi.length > 0) return fromAi;
-    const masterToolkit = (masterCv as any).technical_toolkit || (masterCv as any).technicalToolkit;
-    return masterToolkit?.[key] || [];
-  };
+  const skills = useMemo(() => {
+    const tailored = tailoredCv?.technicalToolkit;
+    const master = masterToolkit(masterCv);
+    const pick = (key: 'creative' | 'digital' | 'management' | 'ai') => {
+      const fromAi = tailored?.[key];
+      if (Array.isArray(fromAi) && fromAi.length > 0) return fromAi;
+      return master?.[key] ?? [];
+    };
+    return {
+      creative: pick('creative'),
+      digital: pick('digital'),
+      management: pick('management'),
+      ai: pick('ai'),
+    };
+  }, [tailoredCv?.technicalToolkit, masterCv]);
 
   return (
     <div className={`min-h-screen bg-[#F8F8F8] text-black font-sans flex flex-col overflow-x-hidden ${atsMode ? 'ats-mode' : ''}`}>
@@ -344,7 +343,7 @@ const App: React.FC = () => {
         {/* LEFT: wordmark */}
         <div className="flex items-center gap-3 md:gap-4 md:justify-self-start">
           <h1 className="text-2xl sm:text-3xl md:text-5xl font-black uppercase tracking-tighter italic leading-none">Orchestrator</h1>
-          <p className="hidden md:block text-[10px] font-black uppercase tracking-[0.4em] self-baseline">v4.3</p>
+          <p className="hidden md:block text-[10px] font-black uppercase tracking-[0.4em] self-baseline">v5</p>
           <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Open settings"
@@ -658,7 +657,7 @@ const App: React.FC = () => {
                 </div>
               ) : tailoredCv ? (
                 /* DOCUMENT RENDER */
-                <div ref={docRef} className="animate-in slide-in-from-bottom-10 duration-700 flex flex-col gap-20 print:display-block print:gap-0">
+                <div className="animate-in slide-in-from-bottom-10 duration-700 flex flex-col gap-20 print:display-block print:gap-0">
                   {/* VALIDATION BANNER — fires when model dropped roles or returned thin highlights */}
                   {validation && !validation.ok && (
                     <div className="no-print w-full max-w-[840px] self-center -mb-10 border-2 border-black bg-yellow-200 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
@@ -836,7 +835,7 @@ const App: React.FC = () => {
                         <span className="cv-label" style={{ opacity: 0.4 }}>IDENTITY</span>
                         <h2 className="cv-section-title" style={{ marginTop: '8px', marginBottom: '24px' }}>PROFESSIONAL PROFILE</h2>
                         <div className="cv-target-title" style={{ marginBottom: '16px', opacity: 0.8 }}>{tailoredCv.targetJobTitle}</div>
-                        <p className="cv-lead" style={{ textAlign: 'left' }}>{highlightText(tailoredCv.professionalProfile, tailoredCv.tailoredKeywords || [])}</p>
+                        <p className="cv-lead" style={{ textAlign: 'left' }}>{highlightText(tailoredCv.professionalProfile)}</p>
                       </div>
                     </div>
                     {/* PAGE 2 */}
@@ -846,7 +845,7 @@ const App: React.FC = () => {
                       <div className="flex flex-col gap-10 mt-12">
                         {(tailoredCv.experience || []).map((e, i) => (
                           <div key={i} className="document-grid" style={{ gridTemplateColumns: 'repeat(12, 1fr)' }}>
-                            <div className="col-span-2">{formatPeriod(e.period || e.dates || '')}</div>
+                            <div className="col-span-2">{formatPeriod(e.period || '')}</div>
                             <div className="col-span-10">
                               <h3 className="cv-item-role">{e.role}</h3>
                               <span className="cv-label" style={{ color: 'black', display: 'block', marginBottom: '8px', opacity: 1 }}>{e.company}</span>
@@ -854,7 +853,7 @@ const App: React.FC = () => {
                                 {e.highlights.map((h, idx) => (
                                   <li key={idx} className="cv-body" style={{ position: 'relative', paddingLeft: '14px', lineHeight: '1.4' }}>
                                     <span style={{ position: 'absolute', left: 0, opacity: 0.2 }}>•</span>
-                                    {highlightText(h, tailoredCv.tailoredKeywords || [])}
+                                    {highlightText(h)}
                                   </li>
                                 ))}
                               </ul>
@@ -880,15 +879,15 @@ const App: React.FC = () => {
                       <div className="document-grid" style={{ marginTop: '60px' }}>
                         <div className="col-span-12"><span className="cv-label" style={{ display: 'block', marginBottom: '16px', borderBottom: '1px solid black', paddingBottom: '4px' }}>SKILLS</span></div>
                         <div className="col-span-6 flex flex-col gap-12">
-                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Creative Production</span><div className="flex flex-wrap gap-x-6 gap-y-2">{getSkills('creative').map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
-                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Digital Architecture</span><div className="flex flex-wrap gap-x-6 gap-y-2">{getSkills('digital').map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
+                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Creative Production</span><div className="flex flex-wrap gap-x-6 gap-y-2">{skills.creative.map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
+                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Digital Architecture</span><div className="flex flex-wrap gap-x-6 gap-y-2">{skills.digital.map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
                         </div>
                         <div className="col-span-6 flex flex-col gap-12">
-                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Systems & Management</span><div className="flex flex-wrap gap-x-6 gap-y-2">{getSkills('management').map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
-                          {getSkills('ai').length > 0 && (
-                            <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>AI Augmentation</span><div className="flex flex-wrap gap-x-6 gap-y-2">{getSkills('ai').map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
+                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Systems & Management</span><div className="flex flex-wrap gap-x-6 gap-y-2">{skills.management.map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
+                          {skills.ai.length > 0 && (
+                            <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>AI Augmentation</span><div className="flex flex-wrap gap-x-6 gap-y-2">{skills.ai.map((s, i) => (<span key={i} className="cv-item-meta">{s}</span>))}</div></div>
                           )}
-                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Communication</span><div className="flex flex-col gap-3">{(masterCv?.candidate?.languages || masterCvData.candidate.languages || []).map((l: any, i: number) => (<div key={i} className="flex justify-between items-baseline"><span className="cv-item-role" style={{ fontSize: '11px' }}>{l.language}</span><span className="cv-item-meta">{l.fluency}</span></div>))}</div></div>
+                          <div><span className="cv-label" style={{ display: 'block', marginBottom: '12px' }}>Communication</span><div className="flex flex-col gap-3">{(masterCv?.candidate?.languages ?? []).map((l: { language: string; fluency: string }, i: number) => (<div key={i} className="flex justify-between items-baseline"><span className="cv-item-role" style={{ fontSize: '11px' }}>{l.language}</span><span className="cv-item-meta">{l.fluency}</span></div>))}</div></div>
                         </div>
                       </div>
                       <div style={{ marginTop: 'auto', paddingTop: '60px' }}>
@@ -929,7 +928,7 @@ const App: React.FC = () => {
                             style={{ fontFamily: 'inherit', fontSize: '12px', lineHeight: '1.6', minHeight: '420px', whiteSpace: 'pre-wrap' }}
                           />
                         ) : (
-                          (tailoredCv.coverLetter || '').split('\n\n').map((para, i) => (<p key={i}>{highlightText(para, tailoredCv.tailoredKeywords || [])}</p>))
+                          (tailoredCv.coverLetter || '').split('\n\n').map((para, i) => (<p key={i}>{highlightText(para)}</p>))
                         )}
                         <div style={{ marginTop: '16px', borderTop: '1px solid black', paddingTop: '16px' }}>
                           <p className="cv-body" style={{ marginBottom: '8px', opacity: 0.6 }}>If you want to see some of my work that covers from web design, graphic design, video and photo, please refer to my portfolio where I upload all my latest works:</p>
