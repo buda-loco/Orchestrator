@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2, AlertCircle, Trash2, List, ArrowLeft, Search, Rocket, Settings as SettingsIcon, Pencil, Check, X as XIcon, FilePlus, ChevronDown } from 'lucide-react';
 // Public template seed. Personal data lives in localStorage (loadMasterCv) or is uploaded via the UI.
 import masterCvData from '../../master-cv.example.json';
@@ -25,6 +25,7 @@ import {
 } from './lib/storage';
 import { orchestrate as runOrchestrate } from './lib/orchestrate';
 import { getProvider } from './lib/providers';
+import { validateTailoring, restoreMissingRoles } from './lib/validation';
 
 // Global Filter
 if (typeof window !== 'undefined') {
@@ -249,6 +250,22 @@ const App: React.FC = () => {
   const cancelLetterEdit = () => {
     setEditingLetter(false);
     setLetterDraft('');
+  };
+
+  const validation = useMemo(
+    () => (tailoredCv ? validateTailoring(masterCv, tailoredCv) : null),
+    [tailoredCv, masterCv]
+  );
+
+  const handleRestoreRoles = () => {
+    if (!tailoredCv) return;
+    const restored = restoreMissingRoles(masterCv, tailoredCv);
+    setTailoredCv(restored);
+    if (jobTitle && company) {
+      storageUpsert({ jobTitle, company, url: jobUrl, jobDescription, data: restored });
+      refreshHistory();
+    }
+    setToast('Missing roles restored from master CV (untailored)');
   };
 
   const downloadPdf = () => {
@@ -632,6 +649,78 @@ const App: React.FC = () => {
               ) : tailoredCv ? (
                 /* DOCUMENT RENDER */
                 <div ref={docRef} className="animate-in slide-in-from-bottom-10 duration-700 flex flex-col gap-20 print:display-block print:gap-0">
+                  {/* VALIDATION BANNER — fires when model dropped roles or returned thin highlights */}
+                  {validation && !validation.ok && (
+                    <div className="no-print w-full max-w-[840px] self-center -mb-10 border-2 border-black bg-yellow-200 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                      <div className="p-5 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" aria-hidden="true" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">
+                              Output incomplete
+                            </p>
+                            <p className="text-sm mt-2 leading-relaxed">
+                              The model returned <strong>{validation.tailoredRoleCount}</strong> of <strong>{validation.masterRoleCount}</strong> roles from your master CV
+                              {validation.missingRoles.length > 0 && ' — '}
+                              {validation.thinRoles.length > 0 && validation.missingRoles.length > 0 && ', and '}
+                              {validation.thinRoles.length > 0 && (
+                                <>
+                                  <strong>{validation.thinRoles.length}</strong> role
+                                  {validation.thinRoles.length === 1 ? ' has' : 's have'} fewer than 2 highlights
+                                </>
+                              )}
+                              .
+                            </p>
+                          </div>
+                        </div>
+
+                        {validation.missingRoles.length > 0 && (
+                          <div className="ml-8 space-y-1">
+                            <p className="text-[9px] font-black uppercase tracking-[0.3em]">Missing roles</p>
+                            <ul className="text-xs space-y-0.5">
+                              {validation.missingRoles.map((r, i) => (
+                                <li key={i}>· <strong>{r.company}</strong> — {r.role}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {validation.thinRoles.length > 0 && (
+                          <div className="ml-8 space-y-1">
+                            <p className="text-[9px] font-black uppercase tracking-[0.3em]">Thin roles ( 1 highlight)</p>
+                            <ul className="text-xs space-y-0.5">
+                              {validation.thinRoles.map((r, i) => (
+                                <li key={i}>· <strong>{r.company}</strong> — {r.role} ({r.count} bullet{r.count === 1 ? '' : 's'})</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="ml-8 flex flex-wrap gap-3 pt-2">
+                          {validation.missingRoles.length > 0 && (
+                            <button
+                              onClick={handleRestoreRoles}
+                              className="px-4 py-2 bg-black text-white border-2 border-black text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                            >
+                              Restore from master (untailored)
+                            </button>
+                          )}
+                          <button
+                            onClick={handleOrchestrate}
+                            disabled={loading}
+                            className="px-4 py-2 bg-white text-black border-2 border-black text-[10px] font-black uppercase tracking-widest hover:bg-black hover:text-white transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-black focus-visible:ring-offset-2"
+                          >
+                            Re-run orchestration
+                          </button>
+                        </div>
+
+                        <p className="ml-8 text-[10px] opacity-70 leading-relaxed">
+                          Tip: smaller models (DeepSeek V3, Gemini Flash) sometimes truncate. Switch to Claude Sonnet or Gemini 2.5 Pro in Settings for stricter instruction-following.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* QUALITY REPORT — model self-scored coverage; not printed */}
                   {tailoredCv.coverageReport && (
                     <div className="no-print w-full max-w-[840px] self-center -mb-10 border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
